@@ -81,6 +81,64 @@ class ApiTests(unittest.TestCase):
 
 
 class MotorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_cancelar_descarga_cierra_stream(self):
+        from modelos import Descargar
+        iniciada = asyncio.Event()
+        cerrada = asyncio.Event()
+
+        class Flujo(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                yield b"inicio"
+                iniciada.set()
+                await asyncio.sleep(60)
+
+            async def aclose(self):
+                cerrada.set()
+
+        transporte = httpx.MockTransport(lambda request: httpx.Response(200, stream=Flujo()))
+        with tempfile.TemporaryDirectory() as tmp:
+            motor = Motor(datos=tmp, transporte=transporte)
+            await motor.iniciar()
+            try:
+                tarea = motor.encolar(Descargar(tipo="descargar", urls=["https://test.local/a"]))
+                await asyncio.wait_for(iniciada.wait(), 2)
+                await motor.cancelar(tarea.id)
+                await asyncio.wait_for(motor.cola.join(), 2)
+                self.assertTrue(cerrada.is_set())
+                self.assertEqual(tarea.estado, "cancelada")
+                self.assertEqual(motor.activas, {})
+            finally:
+                await motor.cerrar()
+
+    async def test_timeout_hash_libera_worker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            motor = Motor(workers=1, datos=tmp)
+            await motor.iniciar()
+            try:
+                tarea = motor.encolar(Hashear(tipo="hashear", texto="x",
+                                             iteraciones=10_000_000, timeout=0.02))
+                siguiente = motor.encolar(Esperar(tipo="esperar", segundos=0))
+                await asyncio.wait_for(motor.cola.join(), 5)
+                self.assertEqual(tarea.estado, "fallida")
+                self.assertIn("Timeout", tarea.error)
+                self.assertEqual(siguiente.estado, "completada")
+                self.assertEqual(motor.activas, {})
+            finally:
+                await motor.cerrar()
+
+    async def test_apagado_deja_completar_tarea_corta(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            motor = Motor(datos=tmp, apagado=1)
+            await motor.iniciar()
+            tarea = motor.encolar(Esperar(tipo="esperar", segundos=0.05))
+            for _ in range(100):
+                if tarea.estado == "ejecutando":
+                    break
+                await asyncio.sleep(0.001)
+            self.assertEqual(tarea.estado, "ejecutando")
+            await motor.cerrar()
+            self.assertEqual(tarea.estado, "completada")
+
     async def test_descargas_concurrentes_y_fallo(self):
         from modelos import Descargar
         activas = 0

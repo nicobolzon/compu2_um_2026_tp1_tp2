@@ -1,0 +1,157 @@
+{
+  "fecha_utc": "2026-10-14T11:47:57.951059+00:00",
+  "equipo": {
+    "sistema": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.14",
+    "procesador": "AMD64 Family 25 Model 97 Stepping 2, AuthenticAMD",
+    "cpu_logicas": 32
+  },
+  "versiones": {
+    "fastapi": "0.142.0",
+    "uvicorn": "0.54.0",
+    "httpx": "0.28.1",
+    "pydantic": "2.13.5"
+  },
+  "parametros": {
+    "repeticiones": 3,
+    "iteraciones_hash": 2000000,
+    "workers": 4,
+    "cola": 100,
+    "descargas": 20,
+    "demora_http_s": 0.1,
+    "bytes_respuesta": 4096
+  },
+  "io": [
+    {
+      "secuencial_s": 1.907742700073868,
+      "concurrente_s": 0.2360876000020653,
+      "speedup": 8.080656078748646
+    },
+    {
+      "secuencial_s": 1.9223994999192655,
+      "concurrente_s": 0.21905930014327168,
+      "speedup": 8.775703650390353
+    },
+    {
+      "secuencial_s": 1.983858099905774,
+      "concurrente_s": 0.21688790014013648,
+      "speedup": 9.146928429958313
+    }
+  ],
+  "cpu": {
+    "directo": [
+      {
+        "get_s": 1.094208300113678,
+        "hash_s": 1.0929129000287503
+      },
+      {
+        "get_s": 1.0419753000605851,
+        "hash_s": 1.0412050001323223
+      },
+      {
+        "get_s": 1.0364638001192361,
+        "hash_s": 1.035733199911192
+      }
+    ],
+    "executor": [
+      {
+        "get_s": 0.03914680005982518,
+        "hash_s": 1.0564393000677228
+      },
+      {
+        "get_s": 0.0765609999652952,
+        "hash_s": 1.0456596999429166
+      },
+      {
+        "get_s": 0.0366258998401463,
+        "hash_s": 1.0534401999320835
+      }
+    ]
+  },
+  "pool": [
+    {
+      "tareas": 4,
+      "lote_s": 0.1906833997927606,
+      "latencia_media_s": 0.18106025,
+      "latencia_max_s": 0.1817,
+      "tareas_por_s": 20.977179997562967
+    },
+    {
+      "tareas": 4,
+      "lote_s": 0.20235270005650818,
+      "latencia_media_s": 0.1832605,
+      "latencia_max_s": 0.19081,
+      "tareas_por_s": 19.767465415005464
+    },
+    {
+      "tareas": 4,
+      "lote_s": 0.20222350000403821,
+      "latencia_media_s": 0.183108,
+      "latencia_max_s": 0.191054,
+      "tareas_por_s": 19.78009479570932
+    },
+    {
+      "tareas": 8,
+      "lote_s": 0.37891500000841916,
+      "latencia_media_s": 0.2735085,
+      "latencia_max_s": 0.36882,
+      "tareas_por_s": 21.11291450542271
+    },
+    {
+      "tareas": 8,
+      "lote_s": 0.3884745999239385,
+      "latencia_media_s": 0.2851555,
+      "latencia_max_s": 0.379418,
+      "tareas_por_s": 20.593366983494835
+    },
+    {
+      "tareas": 8,
+      "lote_s": 0.38809920009225607,
+      "latencia_media_s": 0.27465675,
+      "latencia_max_s": 0.374026,
+      "tareas_por_s": 20.613286495046367
+    },
+    {
+      "tareas": 16,
+      "lote_s": 0.7698269998654723,
+      "latencia_media_s": 0.459151625,
+      "latencia_max_s": 0.752183,
+      "tareas_por_s": 20.783890410177882
+    },
+    {
+      "tareas": 16,
+      "lote_s": 0.759517699945718,
+      "latencia_media_s": 0.46488675,
+      "latencia_max_s": 0.740349,
+      "tareas_por_s": 21.06600017503674
+    },
+    {
+      "tareas": 16,
+      "lote_s": 0.7518660998903215,
+      "latencia_media_s": 0.457375125,
+      "latencia_max_s": 0.733658,
+      "tareas_por_s": 21.280384901425933
+    },
+    {
+      "tareas": 32,
+      "lote_s": 1.49807079997845,
+      "latencia_media_s": 0.825496875,
+      "latencia_max_s": 1.46834,
+      "tareas_por_s": 21.36080617849325
+    },
+    {
+      "tareas": 32,
+      "lote_s": 1.5077994000166655,
+      "latencia_media_s": 0.82735584375,
+      "latencia_max_s": 1.475566,
+      "tareas_por_s": 21.22298231425633
+    },
+    {
+      "tareas": 32,
+      "lote_s": 1.5127508000005037,
+      "latencia_media_s": 0.828436375,
+      "latencia_max_s": 1.479565,
+      "tareas_por_s": 21.15351715562758
+    }
+  ]
+}

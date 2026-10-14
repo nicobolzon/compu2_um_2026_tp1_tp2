@@ -1,8 +1,9 @@
 # TP2 - Plataforma de tareas
 
-Implementacion inicial de la [consigna oficial](consigna.md).
-Entrega: 3 de noviembre de 2026. **No es todavia la entrega final**:
-faltan las mediciones obligatorias, su analisis y la reflexion personal.
+Implementacion de la [consigna oficial](consigna.md).
+Entrega: 3 de noviembre de 2026. Incluye las tres mediciones reales y su analisis.
+**Pendiente de cierre:** validar el contenedor y las senales en Docker,
+y revisar el borrador de reflexion personal al final del informe.
 
 ## Ejecutar
 
@@ -23,6 +24,10 @@ Con Docker Desktop iniciado, desde este directorio:
 ```powershell
 docker compose up --build
 ```
+
+Si el puerto 8000 esta ocupado por la ejecucion directa de Python, cerrar esa
+instancia antes de iniciar Compose. Desde la raiz del repositorio, entrar
+primero con `cd trabajos_practicos/TP2_tareas`: el Compose de la raiz es del TP1.
 
 API en http://localhost:8000/docs. Los volcados se conservan en
 `datos/estado_<timestamp>.json` mediante un volumen. No se restauran tareas
@@ -90,19 +95,32 @@ Apagado lifespan -> espera acotada -> cancela -> cierra -> JSON
   anterior en cada iteracion; devuelve el ultimo digest hexadecimal.
   Se ejecuta en ThreadPoolExecutor para sacar el bucle CPU de la corutina.
   Esto no promete paralelismo multinucleo: el GIL puede degradar la latencia.
-  La medicion obligatoria debera cuantificarlo antes de cerrar esta decision.
+  La medicion de CPU incluida abajo muestra menor latencia de la API, no un
+  hash mas rapido. Se eligen hilos por la cancelacion cooperativa sencilla;
+  un executor de procesos aislaria el GIL, pero requeriria otro mecanismo IPC
+  para cancelar el calculo en curso.
 - Cancelar un Future no detiene su hilo. Una Event solicita al hash salir
   cada 1024 iteraciones y la corutina espera esa salida antes de liberar el worker.
 - Cada worker captura fallos de tareas y continua con la siguiente.
   TaskGroup cancela descargas hermanas ante un error; los contextos de streaming
   cierran las respuestas. Un HTTP 4xx/5xx se registra como respuesta;
   un fallo de transporte hace fallar la tarea.
+  Una excepcion que escapara del bucle del worker mataria esa corutina y
+  reduciria la capacidad del pool. No hay un supervisor que la reinicie;
+  por eso se capturan las excepciones de cada trabajo dentro del bucle.
 - El timeout empieza cuando un worker toma la tarea, no mientras espera en cola.
 - Uvicorn gestiona las senales y ejecuta el cierre lifespan. Se dejan de aceptar
   tareas, se cancelan las pendientes, se espera un plazo por las activas y
   luego se cancelan y liberan sus recursos. El JSON se escribe atomicamente.
-- Relacion con la materia: multiplexacion de I/O, corutinas, sincronizacion,
-  colas productor-consumidor, hilos, cancelacion y manejo de senales.
+- Clase 11: productor-consumidor. La cola desacopla HTTP y ejecucion;
+  el registro se modifica en un solo event loop, sin await entre reservar
+  el ID, encolar y publicar. No necesita un Lock de threads en ese tramo.
+- Clases 17 y 18: multiplexacion y corutinas. Await cede el control durante
+  I/O, pero no convierte un bucle de SHA-256 en trabajo no bloqueante.
+- Clase 19: FastAPI, validacion del cuerpo y codigos HTTP (201/404/409/422/503).
+- Clases 20 y 21: HTTP asincrono, TaskGroup, Queue, timeout y cancelacion.
+- Clases 6 y 10: senales e hilos. Uvicorn gestiona las senales; el hilo de
+  hashing recibe una Event de cancelacion, no una senal de terminacion forzada.
 
 Configuracion por variables de entorno:
 
@@ -123,6 +141,92 @@ Pruebas locales sin Internet: validacion, estados, resultados de hash,
 cancelacion activa/pendiente, saturacion, timeout, recuperacion tras fallos,
 descargas concurrentes simuladas y cierre con volcado y deteccion al reiniciar.
 
+Resultado del 14/10/2026: **10 pruebas correctas**. Incluyen cierre del stream
+al cancelar una descarga, liberacion del worker tras timeout de hashing,
+y finalizacion normal de una tarea corta durante el plazo de apagado.
+Tambien pasaron las 5 pruebas del TP1, sin modificar sus archivos.
+
+`docker compose config --quiet` valido la configuracion. La construccion y
+las pruebas del contenedor quedaron bloqueadas por un error de arranque de
+Docker Desktop en este equipo (`dockerInference`), no por un resultado de build.
+Esto no equivale a validar la ejecucion en Docker.
+
+## Mediciones obligatorias
+
+Resultados completos: [mediciones_resultados.json](mediciones_resultados.json).
+Banco de pruebas: [mediciones.py](mediciones.py). Reproduccion desde este directorio:
+
+```powershell
+.\.venv\Scripts\python.exe mediciones.py --repeticiones 3 --iteraciones 2000000
+```
+
+Medido el 14/10/2026 en Windows 11, Python 3.12.14, CPU AMD64 Family 25 Model 97,
+32 procesadores logicos. FastAPI 0.142.0, Uvicorn 0.54.0, HTTPX 0.28.1 y
+Pydantic 2.13.5. Los valores de las tablas son **medianas de 3 ejecuciones**;
+el JSON conserva cada muestra. El cliente corre fuera del proceso del servidor.
+Se usan puertos locales libres y las instancias se apagan al terminar.
+
+### 1. Concurrencia I/O
+
+Se sirven respuestas HTTP reales de 4096 bytes por loopback, con una espera
+asincrona configurada de 100 ms. No se utiliza Internet ni MockTransport.
+Secuencial: 20 tareas de una URL, esperando cada resultado antes de encolar
+la siguiente. Concurrente: una tarea con las mismas 20 URLs. Se mide desde
+el envio hasta observar el resultado completo, incluyendo HTTP y sondeo.
+
+| Modalidad | Tiempo mediano |
+| --- | ---: |
+| 20 descargas secuenciales | 1.9224 s |
+| 20 descargas concurrentes | 0.2191 s |
+| Speedup (secuencial / concurrente, mediana) | 8.78x |
+
+Las esperas se solapan. No se alcanza 20x: el semaforo permite 16 descargas
+a la vez, por lo que se necesitan dos tandas, ademas del costo HTTP/sondeo.
+La prueba compara el flujo completo de uso, no solamente sockets: la variante
+secuencial tambien paga 20 altas de tarea. La demora de asyncio es nominal;
+la resolucion del reloj y la planificacion en Windows afectan los tiempos
+cortos (por eso no se deduce un limite exacto de 2 segundos).
+Estos resultados no estiman el rendimiento de descargas grandes por Internet.
+
+### 2. CPU y event loop
+
+Se ejecutan 2.000.000 iteraciones SHA-256. El servidor avisa mediante una Event
+de multiprocessing que empieza el calculo; entonces el cliente externo mide
+un GET /tareas. La variante bloqueante existe solo en el proceso del banco,
+no como opcion de la API publicada. Ambas variantes usan el mismo hash.
+
+| Ejecucion del hash | Latencia GET mediana |
+| --- | ---: |
+| Directamente en la corutina (incorrecto) | 1041.98 ms |
+| Con ThreadPoolExecutor | 39.15 ms |
+
+El GET directo espera practicamente todo el hash. Con executor responde mientras
+el calculo sigue activo: la mediana es unas 26.6 veces menor. No es latencia
+cero: las muestras con executor fueron 36.63, 39.15 y 76.56 ms, y el GIL sigue
+compartido. La duracion del hash ronda 1.05 s en ambas variantes. El beneficio
+medido es capacidad de respuesta, no aceleracion de CPU ni paralelismo multinucleo.
+
+### 3. Techo del pool
+
+Pool de 4 workers, cola de 100. Se encolan lotes de tareas esperar de 0.2 s sin
+esperar que termine la anterior. No son requests HTTP simultaneos: son trabajos
+concurrentes pendientes/activos. Las latencias por tarea incluyen la cola,
+desde creada hasta finalizada; el lote incluye el envio y el sondeo del cliente.
+
+| Tareas | Lote (s) | Latencia media (s) | Latencia maxima (s) | Tareas/s |
+| ---: | ---: | ---: | ---: | ---: |
+| 4 | 0.2022 | 0.1831 | 0.1908 | 19.78 |
+| 8 | 0.3881 | 0.2747 | 0.3740 | 20.61 |
+| 16 | 0.7595 | 0.4592 | 0.7403 | 21.07 |
+| 32 | 1.5078 | 0.8274 | 1.4756 | 21.22 |
+
+Al superar cuatro tareas, las restantes esperan turnos. El throughput se
+mantiene cerca de 20 tareas/s (4 / 0.2, con variacion de temporizadores), mientras
+la latencia maxima crece por tandas. El limite observado es el pool, no la CPU.
+No se generaliza a hashing o trafico externo. Para 10.000 envios de golpe,
+la cola acotada rechaza con 503 cuando sus 100 lugares estan ocupados;
+el registro de tareas terminadas sigue creciendo y es una limitacion separada.
+
 ## Limites actuales
 
 Sin autenticacion; usar solo en un entorno de practica de confianza.
@@ -135,11 +239,28 @@ El volcado no es persistencia transaccional y no sobrevive a un cierre forzado.
 
 ## Pendiente para la entrega
 
-- Medir 20 descargas secuenciales y concurrentes, calcular speedup.
-- Comparar latencia GET durante CPU directa y CPU en executor.
-- Medir saturacion al aumentar la concurrencia y analizar degradacion.
-- Registrar equipo, versiones, comandos y resultados reproducibles.
 - Verificar Docker y senales con pruebas de integracion en el entorno de entrega.
-- Escribir 2-3 parrafos personales de aprendizaje y revisar el informe final.
+- Revisar y personalizar los parrafos siguientes; poder explicar el codigo.
 
-No se incluyen cifras inventadas ni una reflexion personal prefabricada.
+## Reflexion personal - borrador para revisar
+
+Este texto es una propuesta tecnica: el alumno debe confirmar que refleja
+su aprendizaje antes de presentarlo como reflexion personal.
+
+La diferencia principal que puedo observar en este trabajo es que concurrencia
+no significa ejecutar todo en paralelo. En las descargas se aprovechan los
+tiempos de espera para atender otras operaciones. En cambio, escribir async
+delante de una funcion de hashing no evita que su bucle ocupe el event loop.
+La comparacion del GET muestra por que conviene separar ese calculo con un executor.
+
+Otro punto importante es que cancelar una tarea no significa borrar su registro
+ni detener automaticamente un hilo. El estado cancelada conserva informacion
+para el cliente, las descargas deben cerrar sus respuestas y el hash necesita
+una indicacion cooperativa de salida. Las pruebas de cancelacion permiten
+comprobar esos comportamientos, ademas de verificar el camino exitoso.
+
+Por ultimo, las mediciones muestran un limite concreto del diseno: aumentar las
+tareas pendientes no aumenta la cantidad de workers. Con cuatro workers crece
+la espera en cola cuando llegan mas trabajos, aunque la API siga respondiendo.
+Por eso es importante medir latencia y capacidad, limitar la cola y documentar
+que el estado en memoria y los volcados no equivalen a una base de datos durable.

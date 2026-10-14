@@ -131,7 +131,14 @@ class Motor:
                     if asyncio.current_task().cancelling():
                         raise
                 except Exception as exc:
-                    registro.terminar("fallida", str(exc))
+                    if isinstance(exc, ExceptionGroup):
+                        causas = exc.exceptions
+                        detalle = f"{type(causas[0]).__name__}: {causas[0]}"
+                        if len(causas) > 1:
+                            detalle += f" (+{len(causas) - 1} errores)"
+                    else:
+                        detalle = f"{type(exc).__name__}: {exc}"
+                    registro.terminar("fallida", detalle)
                     log.exception("Fallo la tarea %s", registro.id)
                 else:
                     if registro.estado != "cancelada":

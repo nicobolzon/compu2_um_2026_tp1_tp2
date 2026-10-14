@@ -169,6 +169,8 @@ class MotorTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertLogs("motor", level="ERROR"):
                     await asyncio.wait_for(motor.cola.join(), 3)
                 self.assertEqual(mala.estado, "fallida")
+                self.assertIn("fallo simulado", mala.error)
+                self.assertIn("ConnectError", mala.error)
                 buena = motor.encolar(Esperar(tipo="esperar", segundos=0))
                 await asyncio.wait_for(motor.cola.join(), 3)
                 self.assertEqual(buena.estado, "completada")

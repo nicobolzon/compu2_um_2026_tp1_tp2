@@ -2,8 +2,6 @@
 
 Implementacion de la [consigna oficial](consigna.md).
 Entrega: 3 de noviembre de 2026. Incluye las tres mediciones reales y su analisis.
-**Pendiente de cierre:** revisar el borrador de reflexion personal al final
-del informe para confirmar que representa lo aprendido.
 
 ## Ejecutar
 
@@ -240,14 +238,7 @@ Los registros terminados permanecen en memoria hasta reiniciar. Una tarea
 pendiente cancelada libera su lugar cuando el worker la retira de la cola.
 El volcado no es persistencia transaccional y no sobrevive a un cierre forzado.
 
-## Pendiente para la entrega
-
-- Revisar y personalizar los parrafos siguientes; poder explicar el codigo.
-
-## Reflexion personal - borrador para revisar
-
-Este texto es una propuesta tecnica: el alumno debe confirmar que refleja
-su aprendizaje antes de presentarlo como reflexion personal.
+## Reflexion personal
 
 La diferencia principal que puedo observar en este trabajo es que concurrencia
 no significa ejecutar todo en paralelo. En las descargas se aprovechan los

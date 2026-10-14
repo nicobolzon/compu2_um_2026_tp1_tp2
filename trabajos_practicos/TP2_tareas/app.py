@@ -1,58 +1,66 @@
-"""API inicial de tareas; la ejecucion se agregara con la consigna del TP2."""
-
-from itertools import count
-from typing import Literal
+"""API de tareas con ciclo de vida y workers asincronos."""
+import asyncio
+import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel, Field
+from modelos import Estado, Solicitud
+from motor import Motor
 
 
-class TareaNueva(BaseModel):
-    tipo: Literal["descargar", "hashear", "esperar"]
-    prioridad: int = Field(default=1, ge=1, le=5)
+def crear_app(*, workers=None, capacidad=None, apagado=None, datos=None, transporte=None):
+    @asynccontextmanager
+    async def lifespan(app):
+        motor = Motor(
+            workers=workers if workers is not None else int(os.getenv("TP2_WORKERS", "4")),
+            capacidad=capacidad if capacidad is not None else int(os.getenv("TP2_COLA", "100")),
+            apagado=apagado if apagado is not None else float(os.getenv("TP2_APAGADO", "5")),
+            datos=datos if datos is not None else os.getenv("TP2_DATOS", "datos"),
+            transporte=transporte,
+        )
+        app.state.motor = motor
+        await motor.iniciar()
+        try:
+            yield
+        finally:
+            await motor.cerrar()
 
+    app = FastAPI(title="TP2 - Plataforma de tareas", lifespan=lifespan)
 
-class Tarea(TareaNueva):
-    id: int
-    estado: Literal["pendiente"] = "pendiente"
+    @app.post("/tareas", status_code=201)
+    async def crear(nueva: Solicitud):
+        try:
+            return app.state.motor.encolar(nueva).vista()
+        except asyncio.QueueFull:
+            raise HTTPException(503, "Cola llena") from None
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
 
+    @app.get("/tareas")
+    async def listar(estado: Estado | None = None,
+                     limite: int = Query(default=100, ge=1, le=1000)):
+        registros = app.state.motor.registros.values()
+        return [r.vista() for r in registros if estado is None or r.estado == estado][:limite]
 
-def crear_app() -> FastAPI:
-    app = FastAPI(title="TP2 - Tareas", description="Primer avance: API sin workers")
-    tareas: dict[int, Tarea] = {}
-    ids = count(1)
+    @app.get("/tareas/{tarea_id}")
+    async def obtener(tarea_id: int):
+        registro = app.state.motor.registros.get(tarea_id)
+        if registro is None:
+            raise HTTPException(404, "No existe esa tarea")
+        return registro.vista()
 
-    @app.post("/tareas", response_model=Tarea, status_code=201)
-    async def crear(nueva: TareaNueva) -> Tarea:
-        tarea = Tarea(id=next(ids), **nueva.model_dump())
-        tareas[tarea.id] = tarea
-        return tarea
-
-    @app.get("/tareas", response_model=list[Tarea])
-    async def listar(
-        estado: Literal["pendiente"] | None = None,
-        limite: int = Query(default=100, ge=1, le=100),
-    ) -> list[Tarea]:
-        resultado = list(tareas.values())
-        if estado is not None:
-            resultado = [tarea for tarea in resultado if tarea.estado == estado]
-        return resultado[:limite]
-
-    @app.get("/tareas/{tarea_id}", response_model=Tarea)
-    async def obtener(tarea_id: int) -> Tarea:
-        if tarea_id not in tareas:
-            raise HTTPException(status_code=404, detail="No existe esa tarea")
-        return tareas[tarea_id]
-
-    @app.delete("/tareas/{tarea_id}", status_code=204)
-    async def borrar(tarea_id: int) -> None:
-        if tarea_id not in tareas:
-            raise HTTPException(status_code=404, detail="No existe esa tarea")
-        del tareas[tarea_id]
+    @app.delete("/tareas/{tarea_id}")
+    async def cancelar(tarea_id: int):
+        try:
+            return (await app.state.motor.cancelar(tarea_id)).vista()
+        except KeyError:
+            raise HTTPException(404, "No existe esa tarea") from None
+        except ValueError as exc:
+            raise HTTPException(409, str(exc)) from exc
 
     @app.get("/estadisticas")
-    async def estadisticas() -> dict[str, int]:
-        return {"total": len(tareas), "pendientes": len(tareas)}
+    async def estadisticas():
+        return app.state.motor.estadisticas()
 
     return app
 

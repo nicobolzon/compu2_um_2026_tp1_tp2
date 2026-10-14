@@ -24,6 +24,6 @@ El informe, la consigna y las instrucciones completas estan en [TP1_monitoreo](t
 
 ## TP2 - Tareas
 
-Primer avance basado en los ejercicios de las clases 19 y 20. La consigna oficial aun no esta publicada. La API permite registrar, listar, consultar y borrar tareas, pero todavia no las ejecuta.
+Consigna oficial publicada. La API ejecuta descargas concurrentes, hashing y esperas mediante una cola y workers asincronos, con cancelacion, timeouts y volcado al apagar. Las mediciones y el informe final siguen pendientes.
 
-Para instalarlo, ejecutarlo y probarlo, ver [TP2_tareas](trabajos_practicos/TP2_tareas/README.md). La implementacion se ajustara cuando la catedra publique los requisitos definitivos.
+Para instalarlo, ejecutarlo y probarlo, ver [TP2_tareas](trabajos_practicos/TP2_tareas/README.md).

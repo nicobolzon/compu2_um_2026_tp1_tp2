@@ -1,0 +1,13 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      TP2_WORKERS: "4"
+      TP2_COLA: "100"
+      TP2_APAGADO: "5"
+      TP2_DATOS: /app/datos
+    volumes:
+      - ./datos:/app/datos
+    stop_grace_period: 20s

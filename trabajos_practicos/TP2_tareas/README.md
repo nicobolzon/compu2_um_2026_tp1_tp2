@@ -2,8 +2,8 @@
 
 Implementacion de la [consigna oficial](consigna.md).
 Entrega: 3 de noviembre de 2026. Incluye las tres mediciones reales y su analisis.
-**Pendiente de cierre:** validar el contenedor y las senales en Docker,
-y revisar el borrador de reflexion personal al final del informe.
+**Pendiente de cierre:** revisar el borrador de reflexion personal al final
+del informe para confirmar que representa lo aprendido.
 
 ## Ejecutar
 
@@ -146,10 +146,13 @@ al cancelar una descarga, liberacion del worker tras timeout de hashing,
 y finalizacion normal de una tarea corta durante el plazo de apagado.
 Tambien pasaron las 5 pruebas del TP1, sin modificar sus archivos.
 
-`docker compose config --quiet` valido la configuracion. La construccion y
-las pruebas del contenedor quedaron bloqueadas por un error de arranque de
-Docker Desktop en este equipo (`dockerInference`), no por un resultado de build.
-Esto no equivale a validar la ejecucion en Docker.
+`docker compose up -d --build` construyo la imagen y levanto la API el
+14/10/2026 con Docker Engine 29.6.2. Desde el host, `/docs` respondio 200 y
+las tareas `esperar` y `hashear` se completaron. Un `docker compose stop`
+envio SIGTERM: con tareas en curso, el volcado guardo 7 registros (6
+completados y 1 cancelado). Al reiniciar, el log informo el volcado previo.
+Un `docker kill --signal=SIGINT` finalizo con codigo 0 y guardo otro JSON.
+Ambos archivos quedaron en el volumen `datos/` del host.
 
 ## Mediciones obligatorias
 
@@ -239,7 +242,6 @@ El volcado no es persistencia transaccional y no sobrevive a un cierre forzado.
 
 ## Pendiente para la entrega
 
-- Verificar Docker y senales con pruebas de integracion en el entorno de entrega.
 - Revisar y personalizar los parrafos siguientes; poder explicar el codigo.
 
 ## Reflexion personal - borrador para revisar

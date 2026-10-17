@@ -1,11 +1,27 @@
 # TP2 - Plataforma de tareas
 
-Implementacion de la [consigna oficial](consigna.md).
-Entrega: 3 de noviembre de 2026. Incluye las tres mediciones reales y su analisis.
+Implementacion de la [consigna oficial](consigna.md) de Computacion II.
+Entrega: 3 de noviembre de 2026. El informe incluye mediciones reales,
+decisiones de diseno, limitaciones y reflexion personal.
 
 ## Ejecutar
 
-Python 3.11 o superior. Desde este directorio, en PowerShell:
+Con Docker Desktop iniciado, desde `trabajos_practicos/TP2_tareas`:
+
+```powershell
+docker compose up --build
+```
+
+Desde la raiz del repositorio, primero ejecutar
+`cd trabajos_practicos/TP2_tareas`: el Compose de la raiz corresponde al TP1.
+La API queda en http://localhost:8000 y su documentacion interactiva en
+http://localhost:8000/docs. Cerrar con Ctrl+C para que el contenedor reciba
+SIGTERM y guarde el estado. Los volcados permanecen en
+`datos/estado_<timestamp>.json` mediante un volumen. Al iniciar se informa el
+ultimo volcado encontrado, pero las tareas no se restauran automaticamente.
+
+Tambien puede ejecutarse sin Docker con Python 3.11 o superior. En PowerShell,
+desde `trabajos_practicos/TP2_tareas`:
 
 ```powershell
 py -m venv .venv
@@ -13,23 +29,9 @@ py -m venv .venv
 .\.venv\Scripts\python.exe -m uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
-Documentacion interactiva: http://127.0.0.1:8000/docs.
-Cerrar con Ctrl+C para guardar el estado. Usar **un solo proceso Uvicorn**:
-la cola y el registro estan en memoria, no se comparten entre procesos.
-
-Con Docker Desktop iniciado, desde este directorio:
-
-```powershell
-docker compose up --build
-```
-
-Si el puerto 8000 esta ocupado por la ejecucion directa de Python, cerrar esa
-instancia antes de iniciar Compose. Desde la raiz del repositorio, entrar
-primero con `cd trabajos_practicos/TP2_tareas`: el Compose de la raiz es del TP1.
-
-API en http://localhost:8000/docs. Los volcados se conservan en
-`datos/estado_<timestamp>.json` mediante un volumen. No se restauran tareas
-automaticamente: al iniciar se informa el ultimo volcado encontrado.
+No iniciar ambas variantes a la vez: usan el mismo puerto 8000. Usar **un solo
+proceso Uvicorn**, porque la cola y el registro estan en memoria y no se
+comparten entre procesos.
 
 ## API
 
@@ -56,17 +58,22 @@ Cuerpos JSON para POST, tambien disponibles en Swagger:
 Ejemplo PowerShell:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8000/tareas -Method Post -ContentType application/json -Body '{"tipo":"esperar","segundos":2,"timeout":10}'
-Invoke-RestMethod http://127.0.0.1:8000/tareas/1
+$tarea = Invoke-RestMethod http://127.0.0.1:8000/tareas -Method Post -ContentType application/json -Body '{"tipo":"esperar","segundos":2,"timeout":10}'
+$tarea.id
+Invoke-RestMethod "http://127.0.0.1:8000/tareas/$($tarea.id)"
 Invoke-RestMethod http://127.0.0.1:8000/estadisticas
 ```
 
-Ejemplo curl (Bash):
+La primera consulta puede mostrar `pendiente` o `ejecutando`; repetirla despues
+de dos segundos para ver `completada`. Para probar la cancelacion, crear una
+tarea `esperar` de 30 segundos y enviar `DELETE /tareas/{id}` antes de que termine.
+
+Ejemplo curl (Bash; reemplazar `ID` por el `id` devuelto por POST):
 
 ```bash
-curl -X POST http://localhost:8000/tareas -H 'Content-Type: application/json' -d '{"tipo":"esperar","segundos":2,"timeout":10}'
-curl http://localhost:8000/tareas/1
-curl -X DELETE http://localhost:8000/tareas/1
+curl -X POST http://localhost:8000/tareas -H 'Content-Type: application/json' -d '{"tipo":"esperar","segundos":30,"timeout":60}'
+curl http://localhost:8000/tareas/ID
+curl -X DELETE http://localhost:8000/tareas/ID
 ```
 
 ## Arquitectura y decisiones

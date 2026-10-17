@@ -24,6 +24,10 @@ El informe, la consigna y las instrucciones completas estan en [TP1_monitoreo](t
 
 ## TP2 - Tareas
 
-Consigna oficial publicada. La API ejecuta descargas concurrentes, hashing y esperas mediante una cola y workers asincronos, con cancelacion, timeouts y volcado al apagar. Incluye las tres mediciones reproducibles y su analisis. La imagen y los apagados SIGTERM/SIGINT se verificaron en Docker; queda revisar la reflexion personal.
+API de tareas con descargas concurrentes, hashing y esperas. Incluye cola,
+workers asincronos, cancelacion, timeouts y volcado del estado al apagar.
+El informe contiene las tres mediciones reproducibles, su analisis y la
+reflexion personal. La ejecucion y el apagado por SIGTERM/SIGINT se verificaron
+en Docker.
 
 Para instalarlo, ejecutarlo y probarlo, ver [TP2_tareas](trabajos_practicos/TP2_tareas/README.md).
